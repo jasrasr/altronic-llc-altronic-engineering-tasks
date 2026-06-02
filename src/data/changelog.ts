@@ -20,6 +20,108 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.24.0",
+    date: "2026-06-02",
+    changes: [
+      "Added workflow View tabs to the EIRs list: 'New' (EIRs with no project reference and no engineer assigned) and 'Needs Assigned' (a project reference is set but no engineer yet), alongside 'All'. Each tab shows a live count",
+      "The selected view is saved in the URL alongside the existing status and filter selections, so a view is shareable as a link",
+    ],
+  },
+  {
+    version: "0.23.1",
+    date: "2026-06-02",
+    changes: [
+      "Reordered the New EIR form so LTB Date now sits after the MFG P/N field (was between MFG and MFG P/N)",
+    ],
+  },
+  {
+    version: "0.23.0",
+    date: "2026-06-01",
+    changes: [
+      "New Admin → EIR Roles page (/admin/eir-roles) where admins tag users as Engineer and/or Supply Chain. Only admins can manage the list",
+      "EIR fields are now permission-gated: only Engineers can edit an EIR's Engineering Response, and only Supply Chain can edit the Buyer Code. Everyone else can still edit every other EIR field. Locked fields show a small lock icon explaining which role is needed",
+      "Gating stays off until the EIR Roles list is set up in SharePoint, so nothing changes for existing users until an admin configures it",
+    ],
+  },
+  {
+    version: "0.22.8",
+    date: "2026-06-01",
+    changes: [
+      "On an EIR, the Project Reference field now lists each selected project on its own line with a ✕ to remove it, instead of collapsing to 'First +N' — so you can see everything assigned at a glance. Click 'Add / edit' to change the selection",
+      "In multi-select dropdowns, the options you've already selected now sort to the top of the list when you open it (and stay put while you toggle, so rows don't jump under your cursor)",
+    ],
+  },
+  {
+    version: "0.22.7",
+    date: "2026-05-29",
+    changes: [
+      "Fixed the EIR detail sidebar stretching wider than its card when a Project Reference (or any field) had a long value — the panel and all its dropdowns now stay within the card and long selections truncate cleanly instead of pushing the layout out",
+    ],
+  },
+  {
+    version: "0.22.6",
+    date: "2026-05-29",
+    changes: [
+      "Reverted the accent colour back to Cooper Red — links, primary buttons, @-mention chips, active filter pills, and other highlights return to the red used before v0.22.5, with white text on the red fills",
+    ],
+  },
+  {
+    version: "0.22.5",
+    date: "2026-05-29",
+    changes: [
+      "The app's accent colour is now Altronic Gold instead of Cooper Red — links, primary buttons, @-mention chips, and other highlights pick up the new brand colour in both light and dark themes",
+      "On the light theme the gold is deepened slightly so links stay legible against the near-white background; the dark theme uses the brighter brand gold, which already stands out on dark surfaces",
+      "Primary buttons, active filter pills, and selected options now use dark text on their gold fill instead of white — much more readable on gold in both themes",
+    ],
+  },
+  {
+    version: "0.22.4",
+    date: "2026-05-27",
+    changes: [
+      "Fixed the 'interaction_in_progress' + 'popup_window_error' cascade on first page load. The signed-in user's SharePoint LookupId is resolved by three different components on mount (DetailView, CommentComposer, Header) and each was firing its own Graph token request in parallel. MSAL only allows one interactive auth at a time, so the 2nd/3rd hit `interaction_in_progress` and the popup fallback got blocked. Concurrent callers now share a single in-flight promise per email — one Graph call instead of three, no popup fights.",
+    ],
+  },
+  {
+    version: "0.22.3",
+    date: "2026-05-27",
+    changes: [
+      "Fixed a cosmetic but loud bug: @-mention and Report-issue sends were succeeding (the email actually went out) but the app reported them as failures in the console because Graph returns 202 Accepted with an empty body for sendMail, and our HTTP helper unconditionally called response.json(), which threw on the empty body. Empty 2xx responses now resolve cleanly to undefined",
+    ],
+  },
+  {
+    version: "0.22.2",
+    date: "2026-05-22",
+    changes: [
+      "@-mention and Report-issue emails now go out for every user with Send-As on the shared mailbox, not just users with FullAccess. The Graph sendMail call no longer asks Exchange to save a copy to the shared mailbox's Sent Items folder (which silently required FullAccess on top of Send-As and made the call 404 for everyone without it)",
+      "Trade-off: the shared mailbox no longer accumulates a copy of every notification it triggers — for an internal notification system this is arguably better (no Sent Items inbox-bloat) but if you ever want a record of what went out, recipients still have it in their inboxes",
+    ],
+  },
+  {
+    version: "0.22.1",
+    date: "2026-05-22",
+    changes: [
+      "Graph 4xx errors in the browser console now include the access token's claims (scp, roles, aud, appid, tid, upn, exp) alongside the existing request/response dump — the only reliable way to confirm whether a missing scope is the cause of an otherwise-mysterious 404 (Graph hides missing-scope errors as 404 rather than 403). The full token is never logged; only the JWT payload claims, which aren't secret",
+    ],
+  },
+  {
+    version: "0.22.0",
+    date: "2026-05-22",
+    changes: [
+      "Task attachments now write to BOTH places: the SharePoint list item on the task itself (so they show up inline in the SharePoint UI), and the project folder in the Documents library (so engineering artefacts stay attributable to the project, not the task)",
+      "The Attachments card on each task now shows two sub-lists — 'On this task' (task-specific list-item attachments, shown first because they take priority) and 'From <project folder>' (the project-folder files). Each entry has its own open / remove controls",
+      "Deletes are scoped: removing a file from 'On this task' only deletes the list-item attachment; removing from the project folder only deletes the file in SharePoint. The other copy is untouched",
+      "Best-effort list-item upload: if the user's tenant hasn't admin-consented to AllSites.Manage on the Entra app, the list-item path silently no-ops and uploads still land in the project folder (so attachments never break completely)",
+    ],
+  },
+  {
+    version: "0.21.3",
+    date: "2026-05-22",
+    changes: [
+      "Report issue button now falls back to opening a mailto: draft whenever the Graph sendMail call fails (404 ErrorItemNotFound from a misconfigured shared mailbox, 403 Forbidden, 401 SessionExpired, etc.) — previously the toast just said 'couldn't send' and the user was stuck. Now the maintainer always gets the report, even when the Exchange config is broken for the signed-in user",
+      "Underlying cause if you've been seeing 404s on automation@altronic-llc.com: the signed-in user almost certainly lacks Send-As permission on the shared mailbox, or Mail.Send.Shared wasn't admin-consented on the app registration; check Exchange admin → mailbox delegation",
+    ],
+  },
+  {
     version: "0.21.2",
     date: "2026-05-22",
     changes: [

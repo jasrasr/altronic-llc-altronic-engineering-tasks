@@ -59,8 +59,8 @@ const SYSTEM_TIERS: Tier[] = [
     label: "React SPA",
     nodes: [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useAdmins · useTaskFiles", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · admins · projectFiles · attachments · email · errorReport", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useAdmins · useEirRoles · useTaskFiles", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · admins · eirRoles · projectFiles · attachments · email · errorReport", palette: "ui" },
     ],
   },
   {
@@ -81,7 +81,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Test Results", palette: "list" },
       { label: "EIRs", palette: "list" },
       { label: "Admins", palette: "list" },
-      { label: "Documents library", hint: "General/Project Folders/* — task attachments route here", palette: "list" },
+      { label: "EIR Roles", hint: "engineer / supply-chain field permissions", palette: "list" },
+      { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
+      { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks & EIRs", palette: "list" },
     ],
   },
 ];
@@ -210,6 +212,18 @@ const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
   {
+    name: "EirRole",
+    source: "EIR Roles list",
+    palette: "entity",
+    x: 960, y: 660, width: 290,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "email", type: "text", kind: "fk", references: "Person.email" },
+      { name: "displayName", type: "text", kind: "field" },
+      { name: "roles", type: "csv", kind: "field" },
+    ],
+  },
+  {
     name: "Comment",
     source: "Concept (Communication field)",
     palette: "shared",
@@ -238,11 +252,11 @@ const SCHEMA_TABLES: SchemaTable[] = [
   },
   {
     name: "Attachment",
-    source: "EIR list-item attachment (SP REST)",
+    source: "Task & EIR list-item attachments (SP REST)",
     palette: "shared",
     x: 960, y: 540, width: 290,
     columns: [
-      { name: "parentId", type: "int", kind: "fk", references: "EIR.id" },
+      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR" },
       { name: "fileName", type: "text", kind: "field" },
       { name: "serverRelativeUrl", type: "text", kind: "field" },
     ],
@@ -301,10 +315,15 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "TestSheet", fromColumn: "tester", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   // Admin → Person
   { fromTable: "Admin", fromColumn: "email", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
+  // EirRole → Person
+  { fromTable: "EirRole", fromColumn: "email", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // Comment → Task & EIR
   { fromTable: "Comment", fromColumn: "parentId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
-  // Attachment (EIR only — Tasks use ProjectFolder routing instead)
+  // List-item attachments — both Tasks and EIRs. Tasks ALSO mirror uploads
+  // into a ProjectFolder/ProjectFile pair (see below) so the same file is
+  // attributable to both the task and the project.
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
   // ProjectFolder routing: every Project has one folder, every folder
   // holds many files. Tasks discover their folder by project lookupId.

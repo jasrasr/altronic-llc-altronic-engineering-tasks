@@ -116,59 +116,136 @@ of `CHANGELOG` is the only place you need to change the version itself.
 
 ## File-by-file overview
 
+Keep this current when adding/removing files (see "Architectural changes"
+below). Tests live next to their source as `*.test.ts(x)` and are omitted here.
+
 ```
 src/
-├── main.tsx                      Entry: providers (Auth, QueryClient, Router)
-├── App.tsx                       Top-level routes
+├── main.tsx                      Entry: providers + installErrorCapture()
+├── App.tsx                       Top-level routes (all pages wired here)
 ├── vite-env.d.ts                 TypeScript types for VITE_* env vars
 │
 ├── auth/
 │   ├── msalConfig.ts             Client ID, tenant, redirect URI, scopes
-│   └── AuthProvider.tsx          MSAL bootstrap + MsalProvider wrapper
+│   ├── AuthProvider.tsx          MSAL bootstrap + MsalProvider wrapper
+│   ├── AuthGate.tsx              Blocks the app until signed in (real mode)
+│   └── SignInPage.tsx            Sign-in screen (+ Report-issue button)
 │
-├── api/
-│   ├── config.ts                 USE_MOCK flag and SharePoint identifiers
-│   ├── graph.ts                  Authenticated fetch wrapper (graphFetch, graphFetchAll)
-│   └── tasks.ts                  All task CRUD (mock + real branches)
+├── api/                          All mock/real branches live here (USE_MOCK)
+│   ├── config.ts                 USE_MOCK, SharePoint list IDs, EIR_ROLES_ENFORCED
+│   ├── graph.ts                  graphFetch / graphFetchAll + JWT claim decode
+│   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
+│   ├── tasks.ts                  Task CRUD
+│   ├── taskColumns.ts            Task list column metadata / choice discovery
+│   ├── eirs.ts                   EIR CRUD
+│   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
+│   ├── testSheets.ts             Test Results CRUD
+│   ├── admins.ts                 Admins list CRUD
+│   ├── projectFiles.ts           Documents-library project folders + files
+│   ├── attachments.ts            List-item attachments (task | eir) via SP REST
+│   ├── currentUser.ts            Resolve the signed-in user's SP lookupId
+│   ├── email.ts                  @-mention notification mail (shared mailbox)
+│   └── errorReport.ts            "Report issue" mail to the app manager
 │
 ├── data/
-│   ├── mockData.ts               Sample tasks, projects, people — matches real schema
-│   └── changelog.ts              Version history (drives the footer + history modal)
+│   ├── mockData.ts               Sample tasks, EIRs, projects, people
+│   ├── dashboardMockData.ts      Sample dashboard metrics
+│   └── changelog.ts              Version history (drives footer + history modal)
 │
 ├── hooks/
-│   ├── useTasks.ts               React Query hooks for tasks/projects/mutations
-│   └── useTheme.ts               Dark/light toggle with localStorage persistence
+│   ├── useTasks.ts               Tasks/projects queries + mutations
+│   ├── useEirs.ts                EIR queries + mutations (optimistic + undo)
+│   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
+│   ├── useTestSheets.ts          Test sheet queries + mutations
+│   ├── useAdmins.ts              Admins list CRUD
+│   ├── useIsAdmin.ts             Is the signed-in user an admin? (+ bootstrap set)
+│   ├── useCurrentUser.ts         Signed-in user as a Person
+│   ├── useTaskFiles.ts           Project-folder + list-item files for a task
+│   ├── useAttachments.ts         List-item attachment upload/list/delete
+│   ├── useFilters.ts             URL-backed task filter state
+│   ├── useTheme.ts               Dark/light toggle (localStorage)
+│   └── useIsPhone.ts             Narrow-viewport media query
 │
 ├── lib/
 │   ├── cn.ts                     clsx + tailwind-merge helper
-│   ├── communicationParser.ts    Parse and serialize the Communication field
-│   └── taskMapper.ts             Graph item → Task domain object
+│   ├── communicationParser.ts    Parse/serialize the Communication field
+│   ├── mentions.ts               @-mention parsing for comments
+│   ├── taskMapper.ts             Graph item → Task
+│   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
+│   ├── testSheetMapper.ts        Graph item → TestSheet
+│   ├── taskGraph.ts              Parent/child task relationships + cycle checks
+│   ├── taskFilters.ts            Pure task filter predicates
+│   ├── graphFields.ts            multiPersonField / multiLookupField writers
+│   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
+│   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
+│   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
-│   └── task.ts                   All domain types (Task, Status, etc.) + constants
+│   └── task.ts                   All domain types + constants (Task, Eir,
+│                                 EirRole/EirRoleEntry, AdminEntry, Person, …)
 │
 ├── components/
-│   ├── Header.tsx                Top bar with logos, view switcher, theme toggle
-│   ├── Footer.tsx                Maintainer contact + version (opens changelog modal)
-│   ├── StatusPills.tsx           Top counter row on the list view
-│   ├── FilterBar.tsx             Project / Assigned / Search / Created By filters
-│   ├── TaskRow.tsx               One row in the list view
-│   ├── KanbanCard.tsx            One card in the Kanban view (whole card draggable)
-│   ├── CommentThread.tsx         Renders a sorted list of comments
-│   ├── CommentComposer.tsx       Textarea + Send button for new comments
-│   ├── atoms.tsx                 Small reusable atoms (badges, chips, icons)
-│   └── brand/
-│       ├── Brandmark.tsx         Official Altronic "A" mark — theme-aware
-│       └── Wordmark.tsx          Official ALTRONIC wordmark — theme-aware
+│   ├── Header.tsx                Top nav (view switcher, Admin link, theme, Report issue)
+│   ├── Footer.tsx                Maintainer contact + version → changelog modal
+│   ├── UserMenu.tsx              Account avatar menu
+│   ├── Toast.tsx                 Toast + undo container
+│   ├── LoadingTasks.tsx          Skeleton loading state
+│   ├── StatusPills.tsx           Task list status counters
+│   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
+│   ├── SearchableSelect.tsx      Single/Multi select (summary + chips variants)
+│   ├── PersonMultiField.tsx      Multi-person picker (pills + add)
+│   ├── TaskRow.tsx               One task row (list view)
+│   ├── KanbanCard.tsx            One Kanban card
+│   ├── EirRow.tsx                One EIR row (EIRs list)
+│   ├── TaskFormModal.tsx         Create/edit task
+│   ├── EirFormModal.tsx          Create/edit EIR
+│   ├── TestSheetFormModal.tsx    Create/edit test sheet
+│   ├── CommentThread.tsx         Sorted comment list
+│   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
+│   ├── AttachmentsSection.tsx    EIR/comment attachments UI
+│   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
+│   ├── PcbChecklistCard.tsx      PCB checklist on a task
+│   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
+│   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
+│   ├── atoms.tsx                 Badges, chips, status colours
+│   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
 │
 ├── views/
-│   ├── ListView.tsx              The default list page
-│   ├── KanbanView.tsx            The drag-and-drop board
-│   └── DetailView.tsx            Task detail with description, sidebar, comments
+│   ├── DashboardView.tsx         Landing dashboard (metric cards + breakdown)
+│   ├── ListView.tsx              Task list
+│   ├── KanbanView.tsx            Task drag-and-drop board
+│   ├── DetailView.tsx            Task detail (description, sidebar, comments)
+│   ├── PrintTaskView.tsx         Chrome-less printable task page
+│   ├── ProjectView.tsx           Single-project task rollup
+│   ├── EirsView.tsx              EIRs list — View tabs (All / New / Needs Assigned),
+│   │                             status pills, filter bar
+│   ├── EirDetailView.tsx         EIR detail (+ role-gated fields, see below)
+│   ├── TestSheetsView.tsx        Test sheets list
+│   ├── TestSheetDetailView.tsx   Test sheet detail
+│   ├── AdminProjectsView.tsx     Admin → Project References (/admin/projects)
+│   ├── AdminAdminsView.tsx       Admin → Admins (/admin/admins)
+│   ├── AdminEirRolesView.tsx     Admin → EIR Roles (/admin/eir-roles)
+│   ├── AboutView.tsx             In-app architecture + ER diagrams
+│   └── ManualView.tsx            In-app user manual
 │
 └── styles/
     └── globals.css               Tailwind + CSS variable theme tokens
 ```
+
+### EIR list views (workflow tabs)
+
+`EirsView` has a **View** tab bar above the status pills, driven by a `view`
+URL param. The bucket predicate is `matchesEirView(eir, view)` (exported from
+`EirsView.tsx`, unit-tested):
+
+- **All** — no extra filter.
+- **New** — no project reference AND no engineer assigned (fresh, needs triage).
+- **Needs Assigned** — has a project reference but still no engineer assigned.
+
+Views compose with the status pills and the filter bar; all three axes live in
+the URL so a view is shareable. To add another view: extend the `EirView` union
++ `matchesEirView` predicate, add a `<ViewTab>`, and document it here and in the
+EIRs section of `ManualView.tsx`.
 
 ## Data model
 
@@ -277,8 +354,37 @@ Already confirmed (don't change without re-verifying):
 - **Projects List ID:** `6280c711-14f6-4546-b730-8781b9d3c960` (env: `VITE_SP_PROJECTS_LIST_ID`)
 - **Test Results List ID:** `52173cd3-74ca-4d30-95c4-7a6b2d765edc` (env: `VITE_SP_TEST_RESULTS_LIST_ID`) — drives the Test Sheets view and the "Create Test Sheet" button on tasks. Both Project Reference and Task Reference columns point back to the lists above, so creating from a task is just two `LookupId` writes.
 - **EIRs List ID:** `8d00a762-288c-4678-afc4-cba2f24ac965` (env: `VITE_SP_EIRS_LIST_ID`) — Engineering Information Request list. Has its own Status / Resolution / Request Type workflows + a Communication field for comments. Project Reference is a lookup to the same Projects list; Task Reference is free-text. See `src/lib/eirMapper.ts` for the field-name quirks (`MFGP_x002f_N`, `Current_x0020_Price`, truncated `Requested_x0020_Completion_x0020`, the `Priority` choice column vs `Priority0` numeric column).
+- **EIR Roles List ID** (env: `VITE_SP_EIR_ROLES_LIST_ID`) — admin-managed list (Title = email, plus `DisplayName`, `Note`, and `Roles` text columns). `Roles` holds a lowercase CSV of role tags (`engineer`, `supply chain`). Gates which EIR fields a user may edit (see "EIR field permissions" below). Not yet created — set the env var once the list exists. Managed at `/admin/eir-roles`.
 - **Shared mailbox** (env: `VITE_SHARED_MAILBOX`) — email address that @-mention notifications send FROM. See setup below.
 - **App manager email** (env: `VITE_APP_MANAGER_EMAIL`) — recipient of "Report issue" reports sent from the life-buoy button in the header. Falls back to `ray.white@altronic-llc.com` if unset, so the button works on day one. Sent FROM the same shared mailbox, with the reporter CC'd. See `src/api/errorReport.ts`.
+
+## EIR field permissions (roles)
+
+Two EIR fields are edit-gated by role tags from the **EIR Roles** list:
+
+- **Engineering Response** → requires the `engineer` role.
+- **Buyer Code** → requires the `supply chain` role.
+
+Every other EIR field stays editable by any signed-in user. A user can hold
+both roles. This is **UI-level gating only** — it disables/locks the controls;
+it is not a server-side security boundary (a user with SharePoint write access
+could still edit the column directly in SharePoint).
+
+Pieces:
+
+- `src/api/eirRoles.ts` + `src/hooks/useEirRoles.ts` — CRUD over the EIR Roles
+  list (mock + real), mirroring the Admins feature. `useMyEirRoles()` resolves
+  the current user's `{ isEngineer, isSupplyChain, enforced }`.
+- `src/views/AdminEirRolesView.tsx` (`/admin/eir-roles`) — admin-gated UI to
+  tag users. Only admins (`useIsAdmin`) can modify it.
+- The field→role map lives **inline in `src/views/EirDetailView.tsx`**: the
+  `EditableTextCard`/`InlineTextField` helpers take a `disabled`/`disabledHint`
+  prop, and the view passes `enforced && !isEngineer` / `enforced && !isSupplyChain`.
+  To gate another field, add the same `disabled` prop where it's rendered.
+- **Lockout safety:** `EIR_ROLES_ENFORCED` (in `src/api/config.ts`) is
+  `USE_MOCK || !!SP_EIR_ROLES_LIST_ID`. In real mode, until the list is
+  configured, gating is OFF so nobody is locked out. Admins are NOT auto-granted
+  roles — they must add themselves to the EIR Roles list to edit gated fields.
 
 ## @-mention email notifications
 
@@ -393,6 +499,66 @@ the right section rather than starting new ones. Keep section ids stable
 so external links don't break. Tone: declarative, present-tense, "you do
 X to get Y." Skip implementation detail.
 
+## Attachments
+
+Tasks store every uploaded file in TWO places at once. This is intentional —
+the two storages serve different purposes and the redundancy is by design.
+
+### 1. Project folder (Documents library)
+
+Files land in `General/Project Folders/<Project Folder>/` on the site's
+default Documents library. Each project folder carries a `Project Reference`
+lookup metadata column tied to the Projects list — that's how the app
+finds the right folder for a task's project. If no folder matches the
+task's project, the file goes into a `Miscellaneous` folder with the
+project code prefixed onto the filename so it stays findable by search.
+
+Comment attachments use this path EXCLUSIVELY (they end up as
+hyperlinks inlined into the comment body HTML, so there's no list-item
+to attach them to).
+
+Code: `src/api/projectFiles.ts`, hooks in `src/hooks/useTaskFiles.ts`.
+Auth: standard Graph `Sites.Selected` — no extra scope needed.
+
+### 2. SharePoint list-item attachment (SP REST)
+
+Same file ALSO gets posted to the task list-item via the SharePoint REST
+endpoint `/_api/web/lists(guid'<list-id>')/items(<id>)/AttachmentFiles`.
+This makes the file visible inline on the task in the native SharePoint UI
+and in any downstream automation that reads list-item attachments.
+
+This path is **best-effort** — if the user's tenant hasn't admin-consented
+to `AllSites.Manage` (Office 365 SharePoint Online), or `VITE_SP_SITE_URL`
+isn't set, the list-item upload silently no-ops and the project-folder
+copy still goes through. The mutation `useUploadTaskFile` always returns
+the project-folder result so callers (incl. the comment composer) keep
+working uniformly.
+
+Code: `src/api/attachments.ts` (parametrised over `"task" | "eir"`).
+
+### UI layout
+
+The Attachments card on the task detail view shows two sub-lists:
+
+1. **On this task (N)** — task-specific list-item attachments. Shown first
+   because they're specific to this task vs. shared across the project.
+2. **From `<folder name>` (N)** — project-folder files. Shown second.
+
+Deletes are scoped per-storage — removing a file from "On this task" only
+deletes the list-item attachment; removing from the project folder only
+deletes the file in SharePoint. The other copy is untouched. This is by
+design: users may want one but not the other to disappear.
+
+### Adding a new attachment-related field
+
+If you add a new attachment field to either entity, update:
+1. `src/api/attachments.ts` (list-item path) or `src/api/projectFiles.ts`
+   (project folder path), depending on which storage it lives on.
+2. The Attachment table in `SCHEMA_TABLES` and any new connection in
+   `CONNECTIONS` in `src/views/AboutView.tsx`.
+3. The Attachments section in `src/views/ManualView.tsx`.
+4. The changelog + this section.
+
 ## Known limitations / TODO
 
 - **Person picker (write):** Assigning users isn't wired up — currently the
@@ -401,10 +567,9 @@ X to get Y." Skip implementation detail.
 - **Rich-text comment editor:** The composer is plain text wrapped in `<p>`
   tags. The Power Apps version uses a full WYSIWYG. If you want feature
   parity, swap `CommentComposer.tsx` for a Tiptap-based editor.
-- **Attachments:** Not yet implemented. Graph's support for list-item
-  attachments is limited; the SharePoint REST API at
-  `/_api/web/lists(guid'<list-id>')/items(<id>)/AttachmentFiles` works
-  better. The same MSAL token works for both endpoints.
+- **Attachments — dual routing:** Tasks store uploads in TWO places at once
+  (best-effort on the list-item side, source-of-truth on the project folder
+  side). See **Attachments** section below for the full picture.
 - **Workflow buttons** (New Test, New Field Trial, Form E028, Form E029)
   from the original app are intentionally not implemented in the MVP.
 - **Parent project resolution:** Needs the projects list ID

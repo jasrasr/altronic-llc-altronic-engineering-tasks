@@ -12,6 +12,47 @@ needs detail, add a sub-bullet underneath it.
 
 ## Next up
 
+- **New-user onboarding instructions.** A single document new engineers
+  (and the IT / admin person setting them up) can read end-to-end to go
+  from "I have an Altronic email" to "I can fully use the app." Put it
+  somewhere both end users and admins can find it — likely a new
+  `docs/ONBOARDING.md` at the repo root and a "Getting started" section
+  in the in-app User Manual (`src/views/ManualView.tsx`) that summarises
+  the user-facing parts.
+
+  Cover at minimum:
+  - **SharePoint site access.** Which site each list lives on, the AD /
+    Entra group memberships the user needs to read + write each list
+    (Project Task List, Projects, Test Results, EIRs, Admins). What the
+    admin runs to grant access. How to verify access before opening the
+    app.
+  - **Shared mailbox permissions** for the @-mention + Report-issue
+    email features. Specifically: the user needs **Send-As + FullAccess**
+    (with `-AutoMapping:$false`) on `automation@altronic-llc.com`.
+    Include the exact PowerShell one-liner IT can run for a new user:
+    ```powershell
+    Add-RecipientPermission automation@altronic-llc.com -Trustee NEW.USER@altronic-llc.com -AccessRights SendAs -Confirm:$false
+    Add-MailboxPermission   automation@altronic-llc.com -User    NEW.USER@altronic-llc.com -AccessRights FullAccess -AutoMapping:$false
+    ```
+    Document *why* both are required (Send-As alone fails Graph's
+    delegated sendMail; see CLAUDE.md's @-mention section).
+  - **Entra app consent.** What the user sees on first sign-in (the
+    Microsoft consent prompt listing User.Read, Sites.Selected,
+    Mail.Send.Shared, etc.), what to click, what to do if their tenant
+    has admin-consent-required and the prompt is blocked.
+  - **First-use checklist.** Open the app, sign in, hit the Dashboard,
+    create a test task, comment with an @-mention, confirm the mention
+    email arrives — a one-page "does it work" walkthrough.
+  - **What goes wrong + how to self-diagnose.** Point at the in-app
+    "Report issue" button (life-buoy icon), explain it captures console
+    errors automatically. Common symptoms (loading hangs = sign-in
+    issue, mention email didn't arrive = Send-As/FullAccess missing,
+    etc.) and their fixes.
+
+  Once written, link it from the README, the in-app Footer "Help" area,
+  and reference it from CLAUDE.md so future Claude sessions know where
+  to look.
+
 - **Catch-up notification on app open.** When a user lands on the app
   after being away, surface a short "while you were gone" summary —
   new tasks assigned to them, new comments on items they're watching,
@@ -41,7 +82,21 @@ needs detail, add a sub-bullet underneath it.
 
 ## Later
 
-(empty)
+- **ECN list integration.** Wire the ECN (Engineering Change Notice)
+  SharePoint list into the app, similar to how EIRs and Test Sheets are
+  wired today: a list view, a detail page, optimistic CRUD via Graph,
+  inclusion in the Engineering Requests dropdown, and an entry in the
+  About-page data model.
+
+  **Blocker:** the ECN list + its underlying SharePoint site haven't
+  been migrated yet. Pick this up once the migration is complete.
+
+  **First step when picked up:** run the discovery PowerShell (list id +
+  columns + sample item) so we can build `src/types/ecn.ts`,
+  `src/lib/ecnMapper.ts`, and `src/api/ecns.ts` against the actual
+  schema. Mirror the EIR pattern (`src/lib/eirMapper.ts`,
+  `src/api/eirs.ts`, `src/views/EirsView.tsx`) — it's the closest
+  analogue and most things will line up structurally.
 
 ## Done / shipped
 
